@@ -1,0 +1,275 @@
+<!-- PrioritizePlus - Single-file HTML/CSS/JS app
+     Purpose: Lightweight front-end app that addresses Low Employee Productivity.
+     Features: Task manager, priorities, goals, time tracker per task, performance dashboard,
+               training resources, recognition badges, role clarification, localStorage persistence.
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Prioritize+ — Productivity Dashboard</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#6ee7b7;--glass:rgba(255,255,255,0.03)}
+    *{box-sizing:border-box;font-family:Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{margin:0;background:linear-gradient(180deg,#071026 0%,#071322 60%);color:#e6eef6}
+    header{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;background:linear-gradient(90deg,rgba(255,255,255,0.02),transparent);backdrop-filter:blur(4px)}
+    header h1{font-size:18px;margin:0}
+    .container{display:grid;grid-template-columns:320px 1fr;gap:18px;padding:22px;max-width:1200px;margin:18px auto}
+    .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(2,6,23,0.6);}
+    .sidebar .section+ .section{margin-top:16px}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input,select,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    button{padding:8px 12px;border-radius:10px;border:0;background:var(--accent);color:#042024;font-weight:600;cursor:pointer}
+    .task{display:flex;gap:10px;align-items:center;padding:10px;border-radius:10px;background:var(--glass);margin-bottom:8px}
+    .task .meta{flex:1}
+    .badge{padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.03);font-size:12px}
+    .priority-low{color:#7dd3fc}
+    .priority-med{color:#facc15}
+    .priority-high{color:#fb7185}
+    .flex{display:flex;gap:8px;align-items:center}
+    .row{display:flex;gap:12px}
+    .dashboard-grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .small{font-size:13px;color:var(--muted)}
+    .stats{display:flex;gap:12px}
+    .stat{flex:1;padding:12px;border-radius:10px;background:linear-gradient(90deg,rgba(255,255,255,0.02),transparent)}
+    canvas{width:100%;height:160px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);border-radius:8px}
+    footer{padding:12px;text-align:center;color:var(--muted);font-size:13px}
+    .actions button{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);padding:6px 10px}
+    .completed{opacity:0.6;text-decoration:line-through}
+    @media (max-width:900px){.container{grid-template-columns:1fr;padding:12px}.dashboard-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Prioritize+ — Productivity Dashboard</h1>
+    <div class="small">Plan Better • Work Smarter • Finish Stronger</div>
+  </header>
+
+  <main class="container">
+    <aside class="sidebar card">
+      <div class="section">
+        <h3 style="margin:0 0 8px 0">Add Task</h3>
+        <label>Title</label>
+        <input id="taskTitle" placeholder="e.g. Prepare weekly report" />
+        <label>Assignee</label>
+        <input id="taskAssignee" placeholder="Employee name" />
+        <label>Priority</label>
+        <select id="taskPriority">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+        <label>Estimated mins</label>
+        <input id="taskEstimate" type="number" min="0" placeholder="30" />
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button id="addTaskBtn">Add Task</button>
+          <button id="clearAllBtn" class="actions">Clear All</button>
+        </div>
+      </div>
+
+      <div class="section" style="margin-top:18px">
+        <h3 style="margin:0 0 8px 0">Quick Goals</h3>
+        <div class="small">Define measurable goals to align expectations.</div>
+        <label>Goal title</label>
+        <input id="goalTitle" placeholder="Reduce processing time" />
+        <label>Target (e.g., tasks/week)</label>
+        <input id="goalTarget" type="number" placeholder="10" />
+        <div style="margin-top:8px"><button id="addGoalBtn">Add Goal</button></div>
+        <div id="goalsList" style="margin-top:12px"></div>
+      </div>
+
+      <div class="section" style="margin-top:16px">
+        <h3 style="margin:0 0 8px 0">Training & Resources</h3>
+        <div class="small">Short training links and micro-learning material.</div>
+        <ul id="resourcesList" style="padding-left:18px;margin-top:8px"></ul>
+        <div style="margin-top:8px">
+          <input id="resourceInput" placeholder="Add resource (URL or title)" />
+          <div style="margin-top:8px"><button id="addResourceBtn">Add Resource</button></div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="main card">
+      <div class="dashboard-grid">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h2 style="margin:0">Tasks</h2>
+            <div class="small">Tasks represent work items. Start a timer to track time spent.</div>
+          </div>
+
+          <div id="tasksContainer"></div>
+
+          <div style="margin-top:12px" class="card">
+            <h3 style="margin-top:0">Performance Summary</h3>
+            <div class="stats">
+              <div class="stat">
+                <div class="small">Completed</div>
+                <div id="statCompleted" style="font-size:20px;font-weight:700">0</div>
+              </div>
+              <div class="stat">
+                <div class="small">Avg Time (mins)</div>
+                <div id="statAvgTime" style="font-size:20px;font-weight:700">0</div>
+              </div>
+              <div class="stat">
+                <div class="small">Active Tasks</div>
+                <div id="statActive" style="font-size:20px;font-weight:700">0</div>
+              </div>
+            </div>
+
+            <div style="margin-top:12px">
+              <canvas id="perfChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <aside style="min-width:0">
+          <div class="card">
+            <h3 style="margin-top:0">Recognition</h3>
+            <div class="small">Award badges to motivate employees.</div>
+            <div id="badgesList" style="margin-top:10px"></div>
+            <div style="margin-top:10px">
+              <label>Employee</label>
+              <input id="badgeEmp" placeholder="Name" />
+              <label>Badge</label>
+              <input id="badgeTitle" placeholder="e.g. Fast Finisher" />
+              <div style="margin-top:8px"><button id="awardBadgeBtn">Award Badge</button></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h3 style="margin-top:0">Role Clarification</h3>
+            <div class="small">List responsibilities so expectations are clear.</div>
+            <textarea id="roleTxt" rows="4" placeholder="Define role responsibilities (e.g. Processing - handles invoice processing, SLAs)..."></textarea>
+            <div style="margin-top:8px"><button id="saveRoleBtn">Save Role</button></div>
+            <div id="roleView" style="margin-top:10px;color:var(--muted)"></div>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="small">Data stored locally in your browser for demo. Use this as a lightweight prototype.</footer>
+    </section>
+  </main>
+
+  <script>
+    // Simple data model using localStorage
+    const LSKEY = 'prioritizeplus_v1';
+    let state = {tasks:[], goals:[], resources:[], badges:[], role: ''};
+
+    function saveState(){localStorage.setItem(LSKEY,JSON.stringify(state));}
+    function loadState(){const s=localStorage.getItem(LSKEY); if(s) state=JSON.parse(s);}
+
+    // Utilities
+    function el(q){return document.querySelector(q)}
+    function formatMins(m){return Math.round(m)}
+
+    // Task operations
+    function renderTasks(){
+      const c = el('#tasksContainer'); c.innerHTML='';
+      state.tasks.forEach((t,idx)=>{
+        const d = document.createElement('div'); d.className='task';
+        d.innerHTML = `
+          <div style="width:44px;text-align:center">
+            <div class="badge ${t.priority==='high'?'priority-high':t.priority==='medium'?'priority-med':'priority-low'}">${t.priority}</div>
+          </div>
+          <div class="meta">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:600" ${t.completed? 'class="completed"' : ''}>${t.title}</div>
+              <div class="small">${t.assignee||'Unassigned'}</div>
+            </div>
+            <div class="small">Est: ${t.estimate||0} mins • Spent: ${formatMins((t.spent||0)/60)} mins</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <div class="row">
+              <button onclick="startTimer(${idx})">${t.timerRunning? 'Pause' : 'Start'}</button>
+              <button onclick="completeTask(${idx})">${t.completed? 'Undo' : 'Complete'}</button>
+            </div>
+            <div class="row actions">
+              <button onclick="editTask(${idx})">Edit</button>
+              <button onclick="deleteTask(${idx})">Delete</button>
+            </div>
+          </div>`;
+        c.appendChild(d);
+      });
+      updateStats();
+    }
+
+    function addTask(){
+      const title = el('#taskTitle').value.trim(); if(!title) return alert('Add a title');
+      const newTask = {title, assignee:el('#taskAssignee').value.trim(), priority:el('#taskPriority').value, estimate:parseInt(el('#taskEstimate').value)||0, spent:0, timerRunning:false, timerStart:0, completed:false};
+      state.tasks.push(newTask); saveState(); renderTasks(); clearAddForm();
+    }
+    function clearAddForm(){el('#taskTitle').value=''; el('#taskAssignee').value=''; el('#taskEstimate').value='';}
+
+    function editTask(i){
+      const t = state.tasks[i]; const newTitle = prompt('Edit title', t.title); if(newTitle===null) return; t.title=newTitle; saveState(); renderTasks();
+    }
+    function deleteTask(i){ if(!confirm('Delete this task?')) return; state.tasks.splice(i,1); saveState(); renderTasks(); }
+
+    function completeTask(i){ const t = state.tasks[i]; if(t.completed){ t.completed=false; } else { t.completed=true; } saveState(); renderTasks(); }
+
+    // Timer functions
+    let tickInterval = null;
+    function startTimer(i){
+      const t = state.tasks[i];
+      if(t.timerRunning){ // pause
+        t.timerRunning=false; t.spent += Date.now() - t.timerStart; t.timerStart=0; saveState(); renderTasks(); stopTickerIfNeeded();
+      } else { // start
+        // pause other timers
+        state.tasks.forEach((x,idx)=>{ if(x.timerRunning){ x.timerRunning=false; x.spent += Date.now()-x.timerStart; x.timerStart=0; } });
+        t.timerRunning=true; t.timerStart=Date.now(); saveState(); renderTasks(); startTicker();
+      }
+    }
+    function startTicker(){ if(tickInterval) return; tickInterval = setInterval(()=>{ saveState(); renderTasks(); },1000); }
+    function stopTickerIfNeeded(){ if(state.tasks.every(t=>!t.timerRunning)){ clearInterval(tickInterval); tickInterval=null; } }
+
+    // Goals
+    function renderGoals(){ const g=el('#goalsList'); g.innerHTML=''; state.goals.forEach((goal,idx)=>{ const div=document.createElement('div'); div.className='small'; div.style.marginTop='6px'; div.innerHTML=`<strong>${goal.title}</strong> — target: ${goal.target}`; g.appendChild(div); }); }
+    function addGoal(){ const title=el('#goalTitle').value.trim(); const target=parseInt(el('#goalTarget').value)||0; if(!title) return alert('Goal title required'); state.goals.push({title,target}); saveState(); renderGoals(); el('#goalTitle').value=''; el('#goalTarget').value=''; }
+
+    // Resources
+    function renderResources(){ const r=el('#resourcesList'); r.innerHTML=''; state.resources.forEach((res,idx)=>{ const li=document.createElement('li'); li.textContent=res; r.appendChild(li); }); }
+    function addResource(){ const v=el('#resourceInput').value.trim(); if(!v) return; state.resources.push(v); saveState(); renderResources(); el('#resourceInput').value=''; }
+
+    // Badges
+    function renderBadges(){ const b=el('#badgesList'); b.innerHTML=''; state.badges.forEach(bd=>{ const div=document.createElement('div'); div.className='badge'; div.style.margin='6px 0'; div.textContent=`${bd.emp} — ${bd.title}`; b.appendChild(div); }); }
+    function awardBadge(){ const emp=el('#badgeEmp').value.trim(); const title=el('#badgeTitle').value.trim(); if(!emp||!title) return alert('Provide employee and badge title'); state.badges.push({emp,title}); saveState(); renderBadges(); el('#badgeEmp').value=''; el('#badgeTitle').value=''; }
+
+    // Roles
+    function saveRole(){ state.role = el('#roleTxt').value.trim(); saveState(); renderRole(); }
+    function renderRole(){ el('#roleView').textContent = state.role || 'No role details saved.'; }
+
+    // Stats and chart
+    function updateStats(){ const completed = state.tasks.filter(t=>t.completed).length; const active = state.tasks.filter(t=>!t.completed).length; const avg = computeAvgTime(); el('#statCompleted').textContent=completed; el('#statActive').textContent=active; el('#statAvgTime').textContent=avg; drawChart(); }
+    function computeAvgTime(){ const done = state.tasks.filter(t=>t.spent>0); if(!done.length) return 0; const avgMs = done.reduce((s,t)=>s+(t.spent||0),0)/done.length; return Math.round((avgMs/60000)); }
+
+    function drawChart(){ const canvas = el('#perfChart'); const ctx = canvas.getContext('2d'); const w = canvas.width = canvas.clientWidth; const h = canvas.height = 160; ctx.clearRect(0,0,w,h);
+      // Simple bar chart: tasks by priority (completed count)
+      const priorities = ['high','medium','low']; const counts = priorities.map(p=> state.tasks.filter(t=>t.priority===p && t.completed).length);
+      const max = Math.max(...counts,1); const barW = (w-40)/counts.length; priorities.forEach((p,i)=>{
+        const bw = barW*0.6; const x = 20 + i*barW + (barW-bw)/2; const hgt = (counts[i]/max)*(h-40); ctx.fillStyle='rgba(110,231,183,0.9)';
+        ctx.fillRect(x, h-20-hgt, bw, hgt);
+        ctx.fillStyle='#cfeee2'; ctx.font='12px sans-serif'; ctx.fillText(p, x, h-4);
+        ctx.fillText(counts[i], x + bw/2 - 4, h-26-hgt);
+      });
+    }
+
+    // Lifecycle
+    document.addEventListener('DOMContentLoaded', ()=>{
+      loadState(); renderAll();
+      el('#addTaskBtn').addEventListener('click', addTask);
+      el('#addGoalBtn').addEventListener('click', addGoal);
+      el('#addResourceBtn').addEventListener('click', addResource);
+      el('#awardBadgeBtn').addEventListener('click', awardBadge);
+      el('#saveRoleBtn').addEventListener('click', saveRole);
+      el('#clearAllBtn').addEventListener('click', ()=>{ if(confirm('Clear all data?')){ state={tasks:[],goals:[],resources:[],badges:[],role:''}; saveState(); renderAll(); }});
+    });
+
+    function renderAll(){ renderTasks(); renderGoals(); renderResources(); renderBadges(); renderRole(); }
+
+    // Expose some functions for inline handlers
+    window.startTimer = startTimer; window.completeTask = completeTask; window.editTask = editTask; window.deleteTask = deleteTask;
+  </script>
+</body>
+</html>
